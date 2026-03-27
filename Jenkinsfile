@@ -210,9 +210,7 @@ pipeline {
               --exit-code 0 \
               "${TARGET_PATH}"
           else
-            cat > "${REPORTS_DIR}/trivy-fs.sarif" <<EOF
-            {"version":"2.1.0","runs":[{"tool":{"driver":{"name":"trivy","rules":[]}},"results":[]}]}
-            EOF
+            printf '%s\n' '{"version":"2.1.0","runs":[{"tool":{"driver":{"name":"trivy","rules":[]}},"results":[]}]}' > "${REPORTS_DIR}/trivy-fs.sarif"
             echo "[Trivy] WARN: scanner unavailable, generated empty SARIF"
           fi
         '''
@@ -295,20 +293,29 @@ pipeline {
             SHA256=""
           fi
 
-          cat > build-metadata.json <<EOF
-          {
-            "job": "${JOB_NAME}",
-            "build_number": "${BUILD_NUMBER}",
-            "build_url": "${BUILD_URL}",
-            "git_commit": "${GIT_COMMIT}",
-            "git_branch": "${GIT_BRANCH}",
-            "artifact_path": "${ARTIFACT}",
-            "artifact_sha256": "${SHA256}",
-            "sbom_path": "${SBOM_DIR}/bom.json",
-            "gitleaks_report": "${REPORTS_DIR}/gitleaks.json",
-            "trivy_report": "${REPORTS_DIR}/trivy-fs.sarif"
-          }
-          EOF
+          .ci/bin/jq -n \
+            --arg job "${JOB_NAME}" \
+            --arg build_number "${BUILD_NUMBER}" \
+            --arg build_url "${BUILD_URL}" \
+            --arg git_commit "${GIT_COMMIT}" \
+            --arg git_branch "${GIT_BRANCH}" \
+            --arg artifact_path "${ARTIFACT}" \
+            --arg artifact_sha256 "${SHA256}" \
+            --arg sbom_path "${SBOM_DIR}/bom.json" \
+            --arg gitleaks_report "${REPORTS_DIR}/gitleaks.json" \
+            --arg trivy_report "${REPORTS_DIR}/trivy-fs.sarif" \
+            '{
+              job: $job,
+              build_number: $build_number,
+              build_url: $build_url,
+              git_commit: $git_commit,
+              git_branch: $git_branch,
+              artifact_path: $artifact_path,
+              artifact_sha256: $artifact_sha256,
+              sbom_path: $sbom_path,
+              gitleaks_report: $gitleaks_report,
+              trivy_report: $trivy_report
+            }' > build-metadata.json
         '''
       }
     }
