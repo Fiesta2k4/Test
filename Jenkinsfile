@@ -48,9 +48,8 @@ pipeline {
           chmod +x .ci/bin/gitleaks
 
           echo "[Tools] Installing trivy..."
-          curl -fsSL -o .ci/bin/trivy.tar.gz "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz"
-          tar -tzf .ci/bin/trivy.tar.gz >/dev/null
-          tar -xzf .ci/bin/trivy.tar.gz -C .ci/bin trivy
+          curl -fsSL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh \
+            | sh -s -- -b .ci/bin "v${TRIVY_VERSION}"
           chmod +x .ci/bin/trivy
 
           echo "[Tools] Versions:"
