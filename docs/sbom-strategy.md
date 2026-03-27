@@ -39,5 +39,5 @@ SBOM (Software Bill of Materials) is used to:
 - Plan to add build provenance (SLSA) to ensure artifact traceability.
 
 ## 7. References
-- [Security Requirements](./security-requirement.md)
+- [Security Requirements](./security-requirements.md)
 - [Release Criteria](./release-criteria.md)

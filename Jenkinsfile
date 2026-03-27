@@ -25,49 +25,90 @@ pipeline {
 
     stage('Tool Install (ephemeral)') {
       steps {
-        sh '''
-          set -e
-          mkdir -p "${REPORTS_DIR}" "${SBOM_DIR}" .ci/bin
+        withCredentials([usernamePassword(credentialsId: 'github-fiesta2k4-pat', usernameVariable: 'GITHUB_USER', passwordVariable: 'GITHUB_TOKEN')]) {
+          sh '''
+            set -e
+            mkdir -p "${REPORTS_DIR}" "${SBOM_DIR}" .ci/bin
 
-          GITLEAKS_VERSION="8.18.4"
-          TRIVY_VERSION="0.50.1"
+            GITLEAKS_VERSION="8.18.4"
+            TRIVY_VERSION="0.50.1"
 
-          echo "[Tools] Installing yq..."
-          curl -fsSL -o .ci/bin/yq https://github.com/mikefarah/yq/releases/download/v4.44.2/yq_linux_amd64
-          chmod +x .ci/bin/yq
+            # Proxy compatibility: map uppercase env vars to lowercase for shell tools.
+            [ -n "${HTTP_PROXY:-}" ] && export http_proxy="${HTTP_PROXY}"
+            [ -n "${HTTPS_PROXY:-}" ] && export https_proxy="${HTTPS_PROXY}"
+            [ -n "${NO_PROXY:-}" ] && export no_proxy="${NO_PROXY}"
 
-          echo "[Tools] Installing jq..."
-          curl -fsSL -o .ci/bin/jq https://github.com/jqlang/jq/releases/download/jq-1.7.1/jq-linux-amd64
-          chmod +x .ci/bin/jq
+            gh_curl() {
+              if [ -n "${GITHUB_TOKEN:-}" ]; then
+                curl -fsSL -H "Authorization: Bearer ${GITHUB_TOKEN}" "$@"
+              else
+                curl -fsSL "$@"
+              fi
+            }
 
-          echo "[Tools] Installing gitleaks..."
-          # Linux amd64; change URL if your Jenkins agent architecture differs
-          if curl -fsSL -o .ci/bin/gitleaks.tar.gz "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" \
-            && tar -tzf .ci/bin/gitleaks.tar.gz >/dev/null \
-            && tar -xzf .ci/bin/gitleaks.tar.gz -C .ci/bin gitleaks; then
-            chmod +x .ci/bin/gitleaks
-            echo "[Tools] gitleaks installed"
-          else
-            echo "[Tools] WARN: gitleaks install failed; secrets scan will produce empty report"
-            rm -f .ci/bin/gitleaks .ci/bin/gitleaks.tar.gz
-          fi
+            retry_cmd() {
+              max_attempts="$1"
+              shift
+              attempt=1
+              while true; do
+                if "$@"; then
+                  return 0
+                fi
+                if [ "$attempt" -ge "$max_attempts" ]; then
+                  return 1
+                fi
+                attempt=$((attempt + 1))
+                echo "[Tools] Retry ${attempt}/${max_attempts}..."
+                sleep 2
+              done
+            }
 
-          echo "[Tools] Installing trivy..."
-          if curl -fsSL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh \
-            | sh -s -- -b .ci/bin "v${TRIVY_VERSION}"; then
-            chmod +x .ci/bin/trivy
-            echo "[Tools] trivy installed"
-          else
-            echo "[Tools] WARN: trivy install failed; SCA scan will produce empty SARIF"
-            rm -f .ci/bin/trivy
-          fi
+            install_trivy_script() {
+              gh_curl https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh \
+                | sh -s -- -b .ci/bin "v${TRIVY_VERSION}"
+            }
 
-          echo "[Tools] Versions:"
-          .ci/bin/yq --version || true
-          .ci/bin/jq --version || true
-          .ci/bin/gitleaks version || true
-          .ci/bin/trivy version || true
-        '''
+            echo "[Tools] Installing yq..."
+            gh_curl -o .ci/bin/yq https://github.com/mikefarah/yq/releases/download/v4.44.2/yq_linux_amd64
+            chmod +x .ci/bin/yq
+
+            echo "[Tools] Installing jq..."
+            gh_curl -o .ci/bin/jq https://github.com/jqlang/jq/releases/download/jq-1.7.1/jq-linux-amd64
+            chmod +x .ci/bin/jq
+
+            echo "[Tools] Installing gitleaks..."
+            # Linux amd64; change URL if your Jenkins agent architecture differs
+            if gh_curl -o .ci/bin/gitleaks.tar.gz "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" \
+              && tar -tzf .ci/bin/gitleaks.tar.gz >/dev/null \
+              && tar -xzf .ci/bin/gitleaks.tar.gz -C .ci/bin gitleaks; then
+              chmod +x .ci/bin/gitleaks
+              echo "[Tools] gitleaks installed"
+            else
+              echo "[Tools] WARN: gitleaks install failed; secrets scan will produce empty report"
+              rm -f .ci/bin/gitleaks .ci/bin/gitleaks.tar.gz
+            fi
+
+            echo "[Tools] Installing trivy..."
+            if retry_cmd 3 install_trivy_script; then
+              chmod +x .ci/bin/trivy
+              echo "[Tools] trivy installed via install script"
+            elif retry_cmd 3 gh_curl -o .ci/bin/trivy.tar.gz "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz" \
+              && tar -tzf .ci/bin/trivy.tar.gz >/dev/null \
+              && tar -xzf .ci/bin/trivy.tar.gz -C .ci/bin trivy; then
+              chmod +x .ci/bin/trivy
+              echo "[Tools] trivy installed via direct asset fallback"
+            else
+              echo "[Tools] WARN: trivy install failed after retries/fallback; SCA scan will produce empty SARIF"
+              rm -f .ci/bin/trivy .ci/bin/trivy.tar.gz
+            fi
+
+            echo "[Tools] Versions:"
+            .ci/bin/yq --version || true
+            .ci/bin/jq --version || true
+            .ci/bin/gitleaks version || true
+            .ci/bin/trivy version || true
+          '''
+        }
       }
     }
 

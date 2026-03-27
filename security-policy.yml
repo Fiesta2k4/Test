@@ -6,7 +6,7 @@ project:
 
 plan:
   requiredFiles:
-    - docs/security-requirement.md
+    - docs/security-requirements.md
     - docs/threat-model.md
     - docs/sbom-strategy.md
     - docs/release-criteria.md

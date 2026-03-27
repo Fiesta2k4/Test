@@ -13,7 +13,7 @@
 - RC-08: Container image scan (if packaging containers)
 
 ## Evidence checklist
-- [ ] [Security Requirements](./security-requirement.md) reviewed and approved
+- [ ] [Security Requirements](./security-requirements.md) reviewed and approved
 - [ ] [Threat Model](./threat-model.md) reviewed and approved
 - [ ] [SBOM Strategy](./sbom-strategy.md) reviewed and approved
 - [ ] Build log/artifact link attached in release record
