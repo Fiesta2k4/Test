@@ -1,0 +1,95 @@
+policyVersion: 1
+
+project:
+  name: spring-petclinic
+  repositoryModel: mono-repo
+
+plan:
+  requiredFiles:
+    - docs/security-requirement.md
+    - docs/threat-model.md
+    - docs/sbom-strategy.md
+    - docs/release-criteria.md
+    - .github/CODEOWNERS
+  ownership:
+    requireAssignedOwners: true
+
+build:
+  maven:
+    goals: "clean package"
+    skipTests: true
+  artifact:
+    required: true
+    pathPattern: "target/*.jar"
+
+sbom:
+  required: true
+  tool: "cyclonedx-maven-plugin"
+  format: "cyclonedx-json"
+  outputFile: "sbom/bom.json"
+
+securityScans:
+  secrets:
+    tool: "gitleaks"
+    enabled: true
+    maxFindings: 0
+    reportFile: "reports/gitleaks.json"
+    reportFormat: "json"
+
+  sast:
+    tool: "semgrep"
+    enabled: false
+    phase: "later"
+    threshold:
+      maxCritical: 0
+      maxHigh: 0
+    reportFile: "reports/semgrep.sarif"
+    reportFormat: "sarif"
+
+  sca:
+    tool: "trivy"
+    enabled: true
+    mode: "filesystem"
+    targetPath: "target"
+    includeSeverities:
+      - CRITICAL
+      - HIGH
+    ignoreUnfixed: true
+    threshold:
+      maxCritical: 0
+    reportFile: "reports/trivy-fs.sarif"
+    reportFormat: "sarif"
+
+metadata:
+  required: true
+  outputFile: "build-metadata.json"
+  requiredFields:
+    - job
+    - build_number
+    - build_url
+    - git_commit
+    - git_branch
+    - artifact_path
+    - artifact_sha256
+    - sbom_path
+    - gitleaks_report
+    - trivy_report
+
+evidenceBundle:
+  archiveRequired: true
+  requiredArtifacts:
+    - build-metadata.json
+    - target/*.jar
+    - reports/*
+    - sbom/*
+    - security-policy.yml
+    - docs/*
+    - .github/CODEOWNERS
+
+release:
+  requirePlanGate: true
+  requireBuildSuccess: true
+  requireSecretsGate: true
+  requireScaGate: true
+  requireSbom: true
+  sastGateOptionalUntilEnabled: true
