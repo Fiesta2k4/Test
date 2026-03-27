@@ -135,6 +135,11 @@ pipeline {
       steps {
         sh '''
           set -e
+          # Clean generated evidence from previous runs in this persistent workspace.
+          # Otherwise nohttp-checkstyle can fail on generated SBOM files containing http:// URLs.
+          rm -f "${SBOM_DIR}"/*.json "${SBOM_DIR}"/*.xml 2>/dev/null || true
+          rm -f "${REPORTS_DIR}"/* 2>/dev/null || true
+
           echo "[Maven] Building artifact (skip tests)..."
           mvn -B -DskipTests clean package
           ls -la target || true
