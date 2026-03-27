@@ -29,22 +29,27 @@ pipeline {
           set -e
           mkdir -p "${REPORTS_DIR}" "${SBOM_DIR}" .ci/bin
 
+          GITLEAKS_VERSION="8.18.4"
+          TRIVY_VERSION="0.50.1"
+
           echo "[Tools] Installing yq..."
-          curl -sSL -o .ci/bin/yq https://github.com/mikefarah/yq/releases/download/v4.44.2/yq_linux_amd64
+          curl -fsSL -o .ci/bin/yq https://github.com/mikefarah/yq/releases/download/v4.44.2/yq_linux_amd64
           chmod +x .ci/bin/yq
 
           echo "[Tools] Installing jq..."
-          curl -sSL -o .ci/bin/jq https://github.com/jqlang/jq/releases/download/jq-1.7.1/jq-linux-amd64
+          curl -fsSL -o .ci/bin/jq https://github.com/jqlang/jq/releases/download/jq-1.7.1/jq-linux-amd64
           chmod +x .ci/bin/jq
 
           echo "[Tools] Installing gitleaks..."
           # Linux amd64; change URL if your Jenkins agent architecture differs
-          curl -sSL -o .ci/bin/gitleaks.tar.gz https://github.com/gitleaks/gitleaks/releases/latest/download/gitleaks_8.18.4_linux_x64.tar.gz
+          curl -fsSL -o .ci/bin/gitleaks.tar.gz "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          tar -tzf .ci/bin/gitleaks.tar.gz >/dev/null
           tar -xzf .ci/bin/gitleaks.tar.gz -C .ci/bin gitleaks
           chmod +x .ci/bin/gitleaks
 
           echo "[Tools] Installing trivy..."
-          curl -sSL -o .ci/bin/trivy.tar.gz https://github.com/aquasecurity/trivy/releases/latest/download/trivy_0.50.1_Linux-64bit.tar.gz
+          curl -fsSL -o .ci/bin/trivy.tar.gz "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz"
+          tar -tzf .ci/bin/trivy.tar.gz >/dev/null
           tar -xzf .ci/bin/trivy.tar.gz -C .ci/bin trivy
           chmod +x .ci/bin/trivy
 
