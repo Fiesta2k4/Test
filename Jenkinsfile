@@ -168,10 +168,24 @@ pipeline {
         sh '''
           set -e
           echo "[SBOM] Generating CycloneDX SBOM..."
+          mkdir -p "${SBOM_DIR}"
+
           mvn -B -DskipTests org.cyclonedx:cyclonedx-maven-plugin:2.8.2:makeAggregateBom \
             -Dcyclonedx.outputFormat=json \
             -Dcyclonedx.outputName=bom \
             -Dcyclonedx.outputDirectory="${SBOM_DIR}"
+
+          # Some CycloneDX plugin executions still write to target/ depending on plugin config/version.
+          if [ -f "${SBOM_DIR}/bom.json" ]; then
+            echo "[SBOM] Found ${SBOM_DIR}/bom.json"
+          elif [ -f "target/bom.json" ]; then
+            cp target/bom.json "${SBOM_DIR}/bom.json"
+            [ -f target/bom.xml ] && cp target/bom.xml "${SBOM_DIR}/bom.xml" || true
+            echo "[SBOM] Normalized target/bom.json -> ${SBOM_DIR}/bom.json"
+          elif [ -f "target/classes/META-INF/sbom/application.cdx.json" ]; then
+            cp target/classes/META-INF/sbom/application.cdx.json "${SBOM_DIR}/bom.json"
+            echo "[SBOM] Normalized application.cdx.json -> ${SBOM_DIR}/bom.json"
+          fi
 
           test -f "${SBOM_DIR}/bom.json"
         '''
